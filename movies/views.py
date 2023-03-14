@@ -1,57 +1,63 @@
+from django.db.models import Q, Sum, Count, F
+
+from django_filters.rest_framework import DjangoFilterBackend
+
 from rest_framework import (
-    response,
-    views,
-    status
+    generics,
 )
 
-from .models import Movie
+from .models import Movie, Actor, Review
 from .serializers import (
-    MovieListSerializer, MovieRetrieveSerializer, ReviewCreateSerializer,
-    CreateRatingSerializer
+    MovieListSerializer, MovieRetrieveSerializer, 
+    ReviewCreateSerializer, CreateRatingSerializer, 
+    ActorListSerializer, ActorRetrieveSerializer
 )
+from .services import get_client_ip
+from .filters import MovieFilter
 
 
-class MovieListAPIView(views.APIView):
+class MovieListAPIView(generics.ListAPIView):
     """Show list of movies"""
 
-    def get(self, request):
-        movies = Movie.objects.filter(draft=False)
-        serializer = MovieListSerializer(movies, many=True)
-        return response.Response(serializer.data)
+    serializer_class = MovieListSerializer
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = MovieFilter
+
+    def get_queryset(self):
+        movies = Movie.objects.filter(draft=False).annotate(
+            rating_user=Count('ratings', filter=Q(ratings__ip=get_client_ip(self.request)))
+        ).annotate(middle_star=Sum(F('ratings__star')) / Count(F('ratings')))
+
+        return movies
     
 
-class MovieRetrieveAPIView(views.APIView):
+class MovieRetrieveAPIView(generics.RetrieveAPIView):
     """Show list of movies"""
+    queryset = Movie.objects.filter(draft=False)
+    serializer_class = MovieRetrieveSerializer
 
-    def get(self, request, pk):
-        movie = Movie.objects.get(id=pk, draft=False)
-        serializer = MovieRetrieveSerializer(movie)
-        return response.Response(serializer.data)
+
+class ReviewCreateAPIView(generics.CreateAPIView):
+    serializer_class = ReviewCreateSerializer
+        
+
+class AddRatigStartAPIView(generics.CreateAPIView):
+    
+    serializer_class = CreateRatingSerializer
+    
+    def perform_create(self, serializer):
+        serializer.save(ip=get_client_ip(self.request))
     
 
-class ReviewCreateAPIView(views.APIView):
-    
-    def post(self, request):
-        review = ReviewCreateSerializer(data=request.data)
-        if review.is_valid():
-            review.save()
-        return response.Response(status=status.HTTP_201_CREATED)
-    
+class ActorListAPIView(generics.ListAPIView):
 
-class AddRatigStartAPIView(views.APIView):
 
-    def get_client_ip(self, request):
-        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
-        else:
-            ip = request.META.get('REMOTE_ADDR')
-        return ip
-    
-    def post(self, request):
-        serializer = CreateRatingSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(ip=self.get_client_ip(request))
-            return response.Response(status=status.HTTP_201_CREATED)
-        else:
-            return response.Response(status=status.HTTP_400_BAD_REQUEST)
+    queryset = Actor.objects.all()
+    serializer_class = ActorListSerializer
+
+
+class ActorRetrieveAPIView(generics.RetrieveAPIView):
+    """Details for actor or director"""
+
+    queryset = Actor.objects.all()
+    serializer_class = ActorRetrieveSerializer

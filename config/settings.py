@@ -52,6 +52,8 @@ INSTALLED_APPS = [
     "debug_toolbar",
 
     'movies',
+
+    'django_filters',
 ]
 
 MIDDLEWARE = [
@@ -231,3 +233,20 @@ CKEDITOR_CONFIGS = {
         ]),
     }
 }
+
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.BasicAuthentication'
+    ],
+    # Generic view behavior
+    'DEFAULT_PAGINATION_CLASS': None,
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+    ],
+
+    # Pagination
+    'PAGE_SIZE': None,
+}
+

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Movie, Review, Rating
+from .models import Movie, Review, Rating, Actor
 
 
 class FilterReviewListSerializer(serializers.ListSerializer):
@@ -19,12 +19,30 @@ class RecuresiveSerializer(serializers. Serializer):
         return serializer.data
 
 
+class ActorListSerializer(serializers.ModelSerializer):
+    """List of actors and directors"""
+
+    class Meta:
+        model = Actor
+        fields = ('id', 'name', 'image')
+
+
+class ActorRetrieveSerializer(serializers.ModelSerializer):
+    """Show all fields for actor or director"""
+
+    class Meta:
+        model = Actor
+        fields = "__all__"
+
+
 class MovieListSerializer(serializers.ModelSerializer):
     """List of movies"""
 
+    rating_user = serializers.BooleanField()
+    middle_star = serializers.IntegerField()
     class Meta:
         model = Movie
-        fields = ("title", "tagline", 'category')
+        fields = ("id","title", "tagline", 'category', 'rating_user', 'middle_star')
 
 
 class ReviewCreateSerializer(serializers.ModelSerializer):
@@ -48,8 +66,8 @@ class ReviewListSerializer(serializers.ModelSerializer):
 class MovieRetrieveSerializer(serializers.ModelSerializer):
     """Movie retrieve"""
     category = serializers.SlugRelatedField(slug_field='name', read_only=True)
-    directors = serializers.SlugRelatedField(slug_field='name', read_only=True, many=True)
-    actors = serializers.SlugRelatedField(slug_field='name', read_only=True, many=True)
+    directors = ActorListSerializer(read_only=True, many=True)
+    actors = ActorListSerializer(read_only=True, many=True)
     genres = serializers.SlugRelatedField(slug_field='name', read_only=True, many=True)
     reviews = ReviewListSerializer(many=True)
     class Meta:
@@ -65,7 +83,7 @@ class CreateRatingSerializer(serializers.ModelSerializer):
         fields = ("star", "movie")
 
     def create(self, validated_data):
-        rating = Rating.objects.update_or_create(
+        rating, _ = Rating.objects.update_or_create(
             ip=validated_data.get("ip"),
             movie=validated_data.get("movie", None),
             defaults={'star': validated_data.get("star")}
